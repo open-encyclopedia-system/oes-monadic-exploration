@@ -1,0 +1,844 @@
+(($) => {
+
+    class oesMonads {
+        constructor(data, options, nodeTypes) {
+            this.data = data;
+            this.options = Object.assign({}, oesMonads.defaults, options);
+            this.nodeTypes = nodeTypes;
+
+            this.state = {
+                filtered: "",
+                selected: -1,
+                query: "",
+                hash: location.hash.substr(1),
+            };
+
+            this.nodes = [];
+            this.Nodes = {};
+            this.spreads = {};
+
+            this.init();
+        }
+
+
+        static get defaults() {
+            return {
+                showType: true,
+                nodeTypes: {},
+                data: {},
+                state: {
+                    filtered: "",
+                    selected: -1,
+                    query: "",
+                    hash: location.hash.substr(1),
+                },
+                nodes: [],
+                spreads: {},
+                valmin: {},
+                valmax: {},
+                valsum: {},
+                resizeTimeout: null,
+                peekTimeout: null,
+                timeouts: [],
+                sort: 'bytype', //@oesDevelopment: could be 'title' or 'none'
+                rotate: 0
+            };
+        }
+
+
+        init() {
+            this.processData();
+            this.buildLegend();
+            this.setWindow();
+            this.elements();
+            this.draw();
+            this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+            const search = $("#oes-me-search");
+
+            // Hash change / history check every 500ms
+            setInterval(() => {
+                const newhash = window.location.hash.substr(1);
+                if (this.state.hash !== newhash) {
+                    this.state.hash = newhash;
+
+                    const hashParts = this.state.hash.split(":");
+                    let id = hashParts[0];
+                    let filtered = hashParts[1] || "";
+
+                    if (typeof this.Nodes[id] === "undefined") id = -1;
+
+                    if (filtered.length !== this.nodeTypes.length) {
+                        filtered = "0".repeat(this.nodeTypes.length);
+                    }
+
+                    if (filtered !== this.state.filtered) {
+                        this.state.filtered = filtered;
+                        this.filter();
+                    }
+
+                    if (id != this.state.selected) this.walk(id);
+                }
+            }, 500);
+
+            // Search typing handler
+            search.keyup(() => {
+                this.state.query = search.val();
+
+                if (this.state.selected === -1) {
+                    this.spreads['-2'] = {};
+                    this.valmax['-2'] = 0;
+                    this.valmin['-2'] = 1000;
+
+                    const terms = this.state.query.split(" ");
+
+                    for (const node of this.nodes) {
+                        const text = [node.title, node.text].join(" ");
+                        let count = 0;
+
+                        for (const term of terms) {
+                            if (term !== "") {
+                                const matches = text.match(new RegExp(term, "gi"));
+                                if (matches) count += matches.length;
+                            }
+                        }
+
+                        this.valmax['-2'] = Math.max(this.valmax['-2'], count);
+                        this.valmin['-2'] = Math.min(this.valmin['-2'], count);
+
+                        this.spreads['-2'][node.id] = count;
+                    }
+
+                    this.draw();
+                }
+            });
+
+            // Cancel current selection on canvas click
+            $("#oes-me-canvas").click(() => {
+                this.walk(-1);
+            });
+
+            // Escape key handling
+            $(window).keydown((e) => {
+                if (e.keyCode === 27) {
+                    if (search.is(":focus")) {
+                        search.blur();
+                        this.state.query = "";
+                        search.val("");
+                    } else {
+                        search.focus();
+                    }
+                    this.walk(-1);
+                }
+            });
+
+            // === DOM Node Click & Hover Events ===
+            $("div.node header, div.node h1")
+                .off("click")
+                .on("click", (e) => {
+                    const id = $(e.currentTarget).parent().attr("id").split("n_")[1];
+                    if (this.state.selected !== id) {
+                        e.preventDefault();
+                        this.walk(id);
+                    } else if ($(e.currentTarget).is("header")) {
+                        this.walk(-1);
+                    }
+                });
+
+            $("div.node h2 span")
+                .off("click")
+                .on("click", () => this.walk(-1));
+
+            $("div.node header, div.node h1")
+                .off("mouseenter mouseleave")
+                .hover(
+                    (e) => {
+                        const id = $(e.currentTarget).parent().attr("id").split("n_")[1];
+                        this.peek(id, true);
+                    },
+                    (e) => {
+                        const id = $(e.currentTarget).parent().attr("id").split("n_")[1];
+                        this.peek(id);
+                    }
+                );
+        }
+
+
+        processData() {
+            this.process(oesMonadicData);
+
+            if (!this.state.hash) {
+                this.state.selected = -1;
+                this.state.filtered = "0".repeat(this.nodeTypes.length);
+            } else {
+                let id;
+                let filtered = "";
+
+                const decodedHash = decodeURIComponent(this.state.hash.split("#").pop());
+                const urlMatchNode = this.nodes.find(node => node.url === decodedHash);
+
+                if (urlMatchNode) {
+                    id = urlMatchNode.id;
+                } else {
+                    const hashParts = this.state.hash.split(":");
+                    id = hashParts[0];
+                    if (hashParts.length > 1) filtered = hashParts[1];
+                }
+
+                this.state.selected = this.Nodes[id] ? id : -1;
+                this.state.filtered = (filtered.length === this.nodeTypes.length) ? filtered : "0".repeat(this.nodeTypes.length);
+            }
+        }
+
+        buildLegend() {
+            if (!this.options.showType) return;
+
+            const legendUl = $("#oes-me-legend ul");
+            legendUl.empty(); // Clear existing legend if any
+
+            this.nodeTypes.forEach((type, index) => {
+                legendUl.append(`<li id="t${index}"><a>${type.names}</a></li>`);
+                const li = $(`#oes-me-legend li#t${index}`);
+                li.css({ color: type.color });
+                if (this.state.filtered.charAt(index) === "1") li.addClass("filtered");
+
+                li.click(() => {
+                    let newFiltered = "";
+                    for (let i = 0; i < this.state.filtered.length; i++) {
+                        if (i === index) {
+                            newFiltered += this.state.filtered.charAt(i) === "1" ? "0" : "1";
+                        } else {
+                            newFiltered += this.state.filtered.charAt(i);
+                        }
+                    }
+                    this.state.filtered = newFiltered;
+                    this.filter();
+                });
+            });
+
+            if (this.state.selected === -1) {
+                $("#oes-me-search").focus();
+            }
+        }
+
+
+        setWindow() {
+            const winside = Math.min($(window).width(), $(window).height());
+
+            this.fs = 5 + Math.round(winside / 75);
+            this.s = Math.round(winside / 100);
+            this.r = Math.round(winside / 5);
+            this.r2 = 1.5 * this.r;
+
+            this.w = $(window).width();
+            this.h = $(window).height();
+
+            // Update history hash
+            this.state.hash = `${this.state.selected === -1 ? '-1' : this.state.selected}:${this.state.filtered}`;
+            window.location.hash = `#${this.state.hash}`;
+
+            // Style center overlay
+            $("#oes-me-center").css({
+                width: this.r,
+                height: this.fs * 3,
+                top: this.h / 2 - this.fs,
+                left: this.w / 2 - this.r2 * 1.5,
+                'font-size': this.fs * 1.25
+            });
+
+            // Show hint if no node selected
+            $("#oes-me-center").toggleClass("active", this.state.selected === -1);
+
+            // Style legend text
+            $("#oes-me-legend li").css({ fontSize: this.fs * 0.9 });
+        }
+
+
+        process(nodes) {
+            // Initialize min/max/sum for no selection (-1)
+            this.valmin = { '-1': 100000 };
+            this.valmax = { '-1': 0 };
+            this.valsum = { '-1': 0 };
+            this.spreads['-1'] = {};
+
+            // Populate nodes array and Nodes map, initialize spreads
+            for (const node of nodes) {
+                this.nodes.push(node);
+                this.Nodes[node.id] = node;
+                this.spreads[node.id] = {};
+            }
+
+            // Mirror links: ensure bidirectional links
+            for (const node of this.nodes) {
+                const id = node.id;
+                for (const linkedId of node.links) {
+                    if (!this.Nodes[linkedId]) continue;
+                    if (!this.Nodes[linkedId].links.includes(id)) {
+                        this.Nodes[linkedId].links.push(id);
+                    }
+                }
+            }
+
+            // Assign colors, types, degrees and track min/max degree
+            for (const node of this.nodes) {
+                if (this.nodeTypes[node.type]) {
+                    node.color = this.nodeTypes[node.type].color;
+                    node.type_text = this.nodeTypes[node.type].name;
+                    node.deg = node.links.length;
+
+                    this.valmin['-1'] = Math.min(this.valmin['-1'], node.deg);
+                    this.valmax['-1'] = Math.max(this.valmax['-1'], node.deg);
+                    this.valsum['-1'] += node.deg;
+                    this.spreads['-1'][node.id] = node.deg;
+                }
+            }
+
+            // Initialize spreads to zero between all pairs except self
+            for (const nodeA of nodes) {
+                for (const nodeB of nodes) {
+                    if (nodeA.id !== nodeB.id) {
+                        this.spreads[nodeA.id][nodeB.id] = 0;
+                    }
+                }
+            }
+
+            // Remove non-existent link IDs from nodes' links
+            for (const node of this.nodes) {
+                node.links = node.links.filter(linkId => this.Nodes[linkId] !== undefined);
+            }
+
+            // Weight spreads with 3-level neighborhood weights
+            const weights = [1, 0.1, 0.01];
+            for (const node of this.nodes) {
+                const id1 = node.id;
+                for (const id2 of node.links) {
+                    this.spreads[id1][id2] += weights[0];
+
+                    for (const id3 of this.Nodes[id2].links) {
+                        if (id3 === id1) continue;
+                        this.spreads[id1][id3] += weights[1];
+
+                        for (const id4 of this.Nodes[id3].links) {
+                            if (id4 === id1 || id4 === id2) continue;
+                            this.spreads[id1][id4] += weights[2];
+                        }
+                    }
+                }
+            }
+
+            // Round spread values and compute min, max, sum for each node
+            for (const nodeA of nodes) {
+                const id1 = nodeA.id;
+                this.valmin[id1] = 100000;
+                this.valmax[id1] = 0;
+                this.valsum[id1] = 0;
+
+                for (const nodeB of nodes) {
+                    if (id1 !== nodeB.id) {
+                        let val = Math.round(100 * this.spreads[id1][nodeB.id]) / 100;
+                        this.spreads[id1][nodeB.id] = val;
+
+                        this.valmin[id1] = Math.min(this.valmin[id1], val);
+                        this.valmax[id1] = Math.max(this.valmax[id1], val);
+                        this.valsum[id1] += val;
+                    }
+                }
+            }
+
+            // Finally, sort the nodes (assumed method)
+            this.sort();
+        }
+
+
+        sort() {
+            if (this.options.sort === 'bytype') {
+                this.nodes.sort((a, b) => {
+                    if (a.type !== b.type) return a.type < b.type ? -1 : 1;
+                    return a.title < b.title ? -1 : 1;
+                });
+            } else if (this.options.sort === 'title') {
+                this.nodes.sort((a, b) => (a.title < b.title ? -1 : 1));
+            }
+        }
+
+
+        walk(id) {
+            window.scrollTo(0, 0);
+
+            if (this.state.selected === id) id = -1;
+
+            this.state.selected = id ?? this.state.selected;
+
+            $(".hover").removeClass("hover");
+
+            this.setWindow();
+
+            clearTimeout(this.options.peekTimeout);
+            this.options.peekTimeout = setTimeout(() => {
+                $(".brush").removeClass("brush");
+                $(".blur").removeClass("blur");
+            }, 2000);
+
+            this.draw();
+        }
+
+
+        peek(id, start) {
+            $(".noani").removeClass("noani");
+
+            if (id.startsWith("_")) return;
+
+            clearTimeout(this.options.peekTimeout);
+
+            $(".hover").removeClass("hover");
+            $(".brush").removeClass("brush");
+            $(".blur").removeClass("blur");
+
+            if (this.state.selected === id) return;
+
+            const node = this.Nodes[id];
+            if (!node || !start) return;
+
+            $(`#oes-me-legend li#t${node.type}`).addClass("brush");
+            $(`#n_${id}`).addClass("hover");
+
+            for (const node2 of this.nodes) {
+                const id2 = node2.id;
+                if (node.links.includes(id2)) {
+                    $(`#n_${id2}`).addClass("brush");
+                } else if (node2.shown && id !== id2) {
+                    $(`#n_${id2}`).addClass("blur");
+                }
+            }
+        }
+
+        elements() {
+            const shorten = (str, len, ellipsis = '...') => {
+                str = String(str);
+                const spaceIndex = str.indexOf(" ", len);
+                len = spaceIndex > 0 ? spaceIndex : str.length;
+                return str.length > len ? str.substr(0, len) + ellipsis : str;
+            };
+
+            for (const node of this.nodes) {
+                const { id } = node;
+                node.css ??= {};
+
+                // Remove filtered elements
+                if (this.isFiltered(node)) {
+                    $(`#n_${id}`).remove();
+                    $(`#n__${id}`).remove();
+                    continue;
+                }
+
+                // Insert elements if not already in DOM
+                if ($(`#n_${id}`).length === 0) {
+                    const text = shorten(node.text, 200, " …");
+                    const title = shorten(node.title, 50);
+                    const h1 = node.url
+                        ? `<h1><a href="${node.url}">${title}</a></h1>`
+                        : `<h1><a>${title}</a></h1>`;
+                    const h2 = `<h2>${text}</h2>`;
+
+                    const { slug: typeSlug, name: typeName } = this.nodeTypes[node.type];
+                    const shown = `
+                <div id="n_${id}" class="node added noani ${typeSlug}">
+                    <header><em>${typeName}</em></header>
+                    ${h1}${h2}
+                </div>`;
+                    const stage = `<div id="n__${id}" class="node stage ${typeSlug}">${h1}</div>`;
+
+                    $('#oes-me-container').append(shown, stage);
+
+                    node.el = $(`#n_${id}`);
+                    node.el_ = $(`#n__${id}`);
+
+                    node.lh = mapInterval(node.text.length, 0, 300, 2, 0.75); // teaser
+                }
+
+                node.el ??= $(`#n_${id}`);
+                node.el_ ??= $(`#n__${id}`);
+
+                node.el_.css({ 'font-size': this.fs });
+                node.width = node.el_.find('h1').width();
+            }
+        }
+
+        filter() {
+            $("#oes-me-legend li.filtered").removeClass("filtered");
+
+            for (let i = 0; i < this.state.filtered.length; i++) {
+                if (this.state.filtered[i] === "1") {
+                    $(`#t${i}`).addClass("filtered");
+                }
+            }
+
+            this.elements();
+            this.setWindow();
+
+            if (
+                this.state.selected > -1 &&
+                this.state.filtered[this.Nodes[this.state.selected].type] === "1"
+            ) {
+                this.walk(-1);
+            } else {
+                this.draw();
+            }
+        }
+
+
+        isFiltered(node) {
+            return this.state.filtered[node.type] === "1";
+        }
+
+
+        draw() {
+            this.clearPreviousDrawState();
+
+            const pid = this.resolveSelectedPid();
+            const ordered = this.buildOrderedNodes(pid);
+
+            this.markLinkedNodes(pid);
+            this.calculateNodeSizes();
+            this.positionNodesCircularly(pid);
+            this.applyStylingToNodes(pid);
+            this.applyDomStyles();
+            this.scheduleDrawTransitions();
+        }
+
+        clearPreviousDrawState() {
+            while (this.options.timeouts.length > 0) {
+                clearTimeout(this.options.timeouts.pop());
+            }
+
+            // $(".overicon, .tobehidden, .hidden, .article, .sheet").removeClass();
+            $(".overicon").removeClass("overicon");
+            $(".tobehidden").removeClass("tobehidden");
+            $(".hidden").removeClass("hidden");
+            $(".article").removeClass("article");
+            $(".sheet").removeClass("sheet");
+
+            $("div.node header").off("mousemove");
+        }
+
+        resolveSelectedPid() {
+            let pid = this.state.selected;
+
+            if (pid === -1 && this.state.query.length > 0 && this.spreads['-2']) {
+                pid = '-2';
+            }
+
+            if (pid === -1 || pid === '-2') {
+                $("#oes-me-search").focus();
+            }
+
+            return pid;
+        }
+
+        buildOrderedNodes(pid) {
+            const visibleLabels = 30;
+            const ordered = [];
+
+            for (const node of this.nodes) {
+                node.linked = false;
+                if (!this.isFiltered(node)) {
+                    ordered.push(node);
+                }
+            }
+
+            ordered.sort((a, b) =>
+                this.spreads[pid][a.id] > this.spreads[pid][b.id] ? -1 : 1
+            );
+
+            if (pid === '-2') {
+                ordered.forEach((node, i) => {
+                    const rel = this.spreads[pid][node.id];
+                    node.linked = rel > 0;
+                    node.shown = i < visibleLabels && rel > 0;
+                });
+            } else {
+                ordered.forEach((node, i) => {
+                    const rel = this.spreads[pid][node.id];
+                    node.shown = (node.id === pid) || (i < visibleLabels && rel > 0);
+                });
+            }
+
+            return ordered;
+        }
+
+        markLinkedNodes(pid) {
+            if (pid !== -1 && pid !== '-2') {
+                for (const linkedId of this.Nodes[pid].links) {
+                    const linked = this.Nodes[linkedId];
+                    linked.linked = true;
+                    linked.shown = true;
+                }
+            }
+        }
+
+        calculateNodeSizes() {
+            for (const node of this.nodes) {
+                const id = node.id;
+                node.size = Math.round(
+                    mapInterval(this.spreads['-1'][id], this.valmin['-1'], this.valmax['-1'], this.s / 2.5, this.s * 1.5)
+                );
+            }
+        }
+
+        positionNodesCircularly(pid) {
+            const r = this.r;
+            const x = $(window).width() / 2;
+            const y = $(window).height() / 2;
+            const s = this.s;
+
+            let sizeInc = 0;
+            let sizeSum = 0;
+
+            for (const node of this.nodes) {
+                if (!this.isFiltered(node)) {
+                    sizeSum += node.size;
+                }
+            }
+
+            for (const node of this.nodes) {
+                if (this.isFiltered(node)) continue;
+
+                const val = this.spreads[pid][node.id];
+                const val_ = Math.log(10 * val + 1);
+                const max_ = Math.log(10 * this.valmax[pid] + 1);
+                const min_ = Math.log(10 * this.valmin[pid] + 1);
+
+                let d = mapInterval(val_, max_, min_, 0, s * 25);
+                if (node.linked) d -= 5 * s;
+
+                const ratio = this.options.rotate + (sizeInc + node.size / 2) / sizeSum;
+                node.angle = ratio * 360;
+                node.x = Math.round(x + (r + d) * Math.sin(ratio * 2 * Math.PI));
+                node.y = Math.round(y - (r + d) * Math.cos(ratio * 2 * Math.PI));
+
+                sizeInc += node.size;
+            }
+        }
+
+        applyStylingToNodes(pid) {
+            const r = this.r;
+            const r_2 = Math.round(r / 2);
+            const x = $(window).width() / 2;
+            const y = $(window).height() / 2;
+            const s = this.s;
+            const f = this.fs;
+
+            for (const node of this.nodes) {
+                if (this.isFiltered(node)) continue;
+
+                const w = node.size;
+
+                // Classes
+                node.el.toggleClass("linked", node.linked || pid === -1);
+                node.el.toggleClass("shown", node.shown).toggleClass("hidden", !node.shown);
+                node.el.toggleClass("sheet", this.state.selected === node.id);
+
+                // Styles
+                const header = {
+                    left: node.x - w / 2 - this.r2,
+                    top: node.y - w / 2,
+                    width: w,
+                    height: w,
+                    'font-size': f * 0.9,
+                    opacity: 1
+                };
+
+                const em = {
+                    'margin-left': 0,
+                    'line-height': `${0.5 * f}px`,
+                    left: 0
+                };
+
+                const h1 = {
+                    display: 'block',
+                    'font-size': f,
+                    width: node.width / 2 + 10,
+                    'transform-origin': "0% 0%",
+                    left: node.x - this.r2 + 1,
+                    top: node.y,
+                    'max-width': node.width / 2 + 10
+                };
+
+                if (node.angle < 180) {
+                    h1.transform = `rotate(${node.angle - 90}deg) translate(${Math.round(node.size)}px, 0)`;
+                } else {
+                    h1.transform = `rotate(${node.angle - 270}deg) translate(-${Math.round(node.width / 2 + node.size + 10)}px, 0)`;
+                }
+
+                const h2 = {
+                    top: y - 4.5 * s,
+                    'font-size': f * 0.8,
+                    left: x - r_2 - 2 * s - this.r2,
+                    width: r + 5 * s
+                };
+
+                if (this.state.selected === node.id) {
+                    Object.assign(header, {
+                        left: x - r_2 - 2 * s - this.r2,
+                        top: h2.top - 5.5 * s,
+                        width: 3 * s,
+                        height: 3 * s,
+                        opacity: this.options.showType ? 1 : 0
+                    });
+
+                    Object.assign(em, {
+                        left: `${3.5 * s}px`,
+                        top: 0,
+                        'line-height': `${3 * s}px`
+                    });
+
+                    Object.assign(h1, {
+                        left: x - r_2 - 2 * s - this.r2,
+                        width: `${node.width * 3}px`,
+                        top: header.top + 5 * s,
+                        transform: "rotate(0deg)",
+                        'max-width': r + 5 * s
+                    });
+
+                    node.el.find("h2").css(h2);
+                }
+
+                node.css = { header, em, h1, h2 };
+            }
+        }
+
+        applyDomStyles() {
+            for (const node of this.nodes) {
+                if (this.isFiltered(node)) continue;
+                if (this.modeChange && !node.shown) node.el.addClass("noani");
+
+                node.el.find("header").css(node.css.header);
+                node.el.find("header em").css(node.css.em);
+                node.el.find("h1").css(node.css.h1);
+                node.el.find("h2").css(node.css.h2);
+            }
+        }
+
+        scheduleDrawTransitions() {
+            this.options.timeouts.push(
+                setTimeout(() => {
+                    $(".noani").removeClass("noani");
+                }, 500)
+            );
+
+            this.options.timeouts.push(
+                setTimeout(() => {
+                    $(".added").removeClass("added");
+
+                    $("div.node.sheet header").on("mousemove", (e) => {
+                        $(e.currentTarget).toggleClass("overicon", e.target.tagName === "HEADER");
+                    });
+                }, 1000)
+            );
+        }
+
+
+    }
+
+    // mapping function
+    function mapInterval(x, xmin, xmax, ymin, ymax, bound, log) {
+
+        /* make sure return value is within ymin and ymax */
+        if (typeof bound === "undefined") bound = false;
+        if (typeof log === "undefined") log = false;
+
+        if (xmin === xmax) return ymax;
+
+        let y, m, n;
+        if (log) {
+            const logxmax = Math.log(xmax + 1),
+                logxmin = Math.log(xmin + 1);
+            m = (ymax / logxmax - ymin) / (1 - logxmin);
+            n = ymin - m * logxmin;
+            y = m * Math.log(x + 1) + n;
+        } else {
+            m = (ymax - ymin) / (xmax - xmin);
+            n = -xmin * m + ymin;
+            y = x * m + n;
+        }
+
+        if (bound) {
+            if (ymin < ymax) {
+                y = Math.min(ymax, y);
+                y = Math.max(ymin, y);
+            } else {
+                y = Math.max(ymax, y);
+                y = Math.min(ymin, y);
+            }
+        }
+
+        return y;
+    }
+
+    // @oesDevelopment
+    function addAdditionalStyle() {
+
+        /* prepare color styles */
+        let type, styles = "";
+        for (let i = 0; i < oesMonadicNodeTypes.length; i++) {
+
+            type = oesMonadicNodeTypes[i].slug;
+            const rgb = hexToRgb(oesMonadicNodeTypes[i].color),
+                color = oesMonadicNodeTypes[i].color,
+                color25 = "rgba(" + rgb.join(",") + ",.25)",
+                color75 = "rgba(" + rgb.join(",") + ",.75)";
+
+            styles += ".sheet." + type + " header	{}\n";
+
+            styles += "." + type + " header	{ background-color: " + color25 + "; }\n";
+            styles += ".sheet.shown." + type + " header	{ background-color: " + color + "; }\n";
+
+            styles += "." + type + " h1 a		{ color: " + color + "; }\n";
+            styles += "." + type + " header em		{ color: " + color + "; }\n";
+            styles += "div.sheet.shown." + type + " h1		{ color: " + color + " !important; }\n";
+
+            styles += ".linked." + type + " header { background-color: " + color75 + " !important; }\n";
+
+            styles += ".shown." + type + " header { background-color: " + color25 + "; }\n";
+            styles += ".shown." + type + " h1 { color: " + color25 + "; }\n";
+
+            styles += ".hover." + type + " header { background-color: " + color + " !important; }\n";
+            styles += ".hover." + type + " h1 { color: " + color + "; }\n";
+
+            styles += ".node.brush." + type + " h1 a { background-color: " + color25 + "; }\n";
+            styles += ".node.brush." + type + " h1 { color: " + color75 + "; }\n";
+
+            styles += ".node.brush.linked." + type + " h1 a { background-color: " + color25 + "; }\n";
+            styles += ".node.brush.linked." + type + " h1 { color: " + color + "; }\n";
+
+            styles += ".node.shown.blur." + type + " h1 { color: " + color25 + "; }\n";
+
+            styles += "#oes-me-legend li#t" + i + ".brush a { background-color: " + color25 + "; }\n";
+        }
+
+        /* add style element to head */
+        const style = document.createElement('style');
+        style.type = 'text/css';
+        style.innerHTML = styles;
+        document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    // Converts a hex color string (#ffcc00) to an { r, g, b } object
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16),
+            parseInt(result[2], 16),
+            parseInt(result[3], 16)
+        ] : [0, 0, 0];
+    }
+
+    jQuery(document).ready(function($) {
+        addAdditionalStyle();
+        window.oes_monads = new oesMonads(oesMonadicData, oesMonadicOptions, oesMonadicNodeTypes);
+    });
+
+
+})(jQuery);

@@ -1,0 +1,482 @@
+#oes-me-container {
+
+  .oes-me {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 1000px;
+    height: 1000px;
+
+    &.noscroll {
+      overflow: hidden !important;
+    }
+  }
+
+  div {
+    width: 0;
+    height: 0;
+
+    header,
+    h1,
+    h2,
+    img {
+      display: block;
+      position: absolute;
+      opacity: 0;
+      cursor: default;
+    }
+  }
+
+  div,
+  div header,
+  div h1,
+  div h2,
+  div p,
+  div em,
+  #oes-me-center {
+    transition-property: top, left, width, height, border-radius, opacity, transform, font-size, color, background-color, line-height;
+    transition-duration: 1s;
+    transition-timing-function: ease-in-out;
+  }
+
+  div {
+    h1 {
+      a {
+        text-decoration: none;
+        transition-property: background, opacity;
+        transition-duration: .5s;
+        transition-delay: 0;
+        transition-timing-function: ease-in-out;
+      }
+
+      a:focus {
+        outline: none;
+      }
+    }
+
+    header {
+      border-radius: 50%;
+      background-size: 0% auto;
+      opacity: 0;
+    }
+  }
+
+  .sheet header.overicon:hover {
+    cursor: pointer;
+  }
+
+
+  // INDEX
+
+  .bg {
+    z-index: 14;
+  }
+
+  div.hover {
+    header {
+      z-index: 13;
+    }
+
+    h1 {
+      z-index: 12;
+    }
+  }
+
+  div.sheet {
+    h1 {
+      z-index: 11;
+    }
+
+    p {
+      z-index: 10;
+    }
+
+    h2 {
+      z-index: 10;
+    }
+  }
+
+  div {
+    header {
+      z-index: 10;
+    }
+
+    h1 {
+      z-index: 11;
+    }
+
+    img {
+      z-index: 7;
+    }
+
+    p {
+      z-index: 6;
+    }
+
+    h2 {
+      z-index: 4;
+    }
+  }
+
+  div.active h1 {
+    z-index: 10;
+  }
+
+  div.active:hover h1 {
+    z-index: 11;
+  }
+
+  #oes-me-canvas {
+    z-index: 3;
+  }
+
+  div.stage,
+  div.stage * {
+    z-index: 0 !important;
+    opacity: 0 !important;
+    transition-property: none !important;
+    cursor: default !important;
+  }
+
+  // OPACITIES
+  div {
+    opacity: 1;
+  }
+
+  div header {
+    opacity: 1;
+  }
+
+  div.shown h1, div.brush h1, div.shown header {
+    opacity: 1;
+  }
+
+  div.shown:not(.linked):not(.sheet):not(:hover) h1 a {
+    opacity: .33;
+  }
+
+  div.blur h1 a {
+    opacity: .33;
+  }
+
+  div.brush h1 a {
+    opacity: 1 !important;
+  }
+
+  div.sheet h2 {
+    opacity: 1;
+  }
+
+  div.sheet header em {
+    opacity: 1;
+  }
+
+  .noani,
+  .noani * {
+    transition-property: none !important;
+  }
+
+  div.added,
+  div.toberemoved {
+    display: none;
+  }
+
+  div header,
+  div h1 {
+    cursor: pointer;
+  }
+
+  div.sheet header em {
+    overflow: visible;
+  }
+
+  div.sheet header,
+  div.sheet h1 {
+    cursor: default;
+  }
+
+  div.hover header,
+  div.hover h1 {
+    transition-duration: 0s;
+  }
+
+  div h1,
+  div h2 {
+    font-weight: 200;
+    font-stretch: normal;
+  }
+
+  div h1 {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    text-shadow: 0em 0em 0.5em #fff;
+
+  }
+
+  div.sheet h1 a:hover {
+    background-color: white;
+  }
+
+  div h1 a {
+    display: block;
+    line-height: 1em;
+    border-radius: 1em;
+    padding: 0 .25em;
+    margin: -.5em -.25em 0 -.25em;
+  }
+
+  div.hover h1 a {
+    text-decoration: underline;
+    background-color: rgba(255, 255, 255, .75) !important;
+  }
+
+  div h2 {
+    text-align: left;
+    float: left;
+  }
+
+  div.sheet h1 a {
+    font-weight: bold;
+    border-radius: 1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: transparent !important;
+    padding: .25em;
+    margin: -.75em -.25em 0 -.25em;
+  }
+
+  div.sheet h1 a:hover {
+    overflow: visible;
+    text-overflow: ellipsis;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  div.sheet p {
+    transition-property: opacity;
+    transition-duration: .75s;
+    transition-delay: 1.5s;
+    background: #fff;
+  }
+
+
+  div.sheet.left a {
+    transform: translate(50%, 0);
+  }
+
+  div.sheet.right a {
+    transform: translate(-50%, 0);
+  }
+
+  div.sheet header {
+    background-size: 100% auto;
+  }
+
+  div.sheet header em {
+    display: block;
+    opacity: 1;
+    width: 100px;
+  }
+
+  div header em {
+    opacity: 0;
+    width: 0;
+    font-style: normal;
+    display: block;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+
+  div h2, div p {
+    text-align: left;
+  }
+
+
+  div.hover h1 {
+    opacity: 1 !important;
+  }
+
+  div.brush h1 {
+    opacity: 1 !important;
+  }
+
+  .oes-me div.tobehidden {
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: .5s;
+    transition-timing-function: ease-in-out;
+  }
+
+  .oes-me div.tobeshown {
+    display: block;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: .5s;
+    transition-timing-function: ease-in-out;
+  }
+
+  #oes-me-canvas,
+  #oes-me-canvas.noani {
+    width: 100%;
+    height: 100%;
+    left: 0;
+    top: 0;
+    position: fixed;
+    transition-property: opacity;
+    transition-duration: 1s !important;
+    transition-timing-function: ease-in-out;
+  }
+
+
+  h2 span:hover, h2 a:hover {
+    text-decoration: none;
+    color: #eee; //#555;
+    background-color: #555; //#eee;
+  }
+
+  h2 span, h2 a {
+    text-decoration: none;
+    color: #fff; //#999;
+    line-height: 2.5em;
+    cursor: pointer;
+    margin-left: -.25em;
+    margin-right: .5em;
+    padding: 0em .25em 0.1em 0.25em;
+    border-radius: 1em;
+    background-color: #999; //#fff;
+
+  }
+
+  .mn_context h2 span.start {
+    opacity: 1 !important;
+  }
+
+  .mn_context h2 span.end, .mn_network h2 span.end {
+    opacity: 0;
+    z-index: 0;
+  }
+
+  .mn_context h2 span.start:after {
+    content: ' …';
+    font-size: .8em;
+  }
+
+
+  /* overlays */
+
+  #oes-me-center, .bg {
+    opacity: 0;
+    position: absolute;
+    transition-property: opacity !important;
+    transition-duration: 0s !important;
+    transition-timing-function: ease-in-out;
+  }
+
+
+  #oes-me-center {
+
+    text-align: center;
+    opacity: 0;
+    transition-property: opacity !important;
+    transition-duration: .5s !important;
+    z-index: 9;
+
+    h1,
+    p {
+      transition-duration: 0s;
+      position: relative;
+    }
+
+    h1 {
+      cursor: default;
+      font-size: 1.5em;
+    }
+  }
+
+  #oes-me-center.active .bg {
+    display: block;
+    background-color: rgba(255, 255, 255, .75);
+  }
+
+  #oes-me-center.active {
+    opacity: 1;
+  }
+
+  #oes-me-center.active * {
+    opacity: 1;
+  }
+
+  .oes-me div h2.close {
+    position: absolute;
+    right: 25px;
+    text-align: center;
+    opacity: 1 !important;
+    color: #999;
+    width: 1.25em;
+    height: 1.25em;
+    line-height: 1.25em;
+    font-size: 1.75em;
+    padding: 0;
+    margin: -25px -25px 0 0;
+    transition-duration: 0s;
+  }
+
+  .oes-me div h2.close:hover {
+    color: #000;
+    cursor: pointer;
+    opacity: 1 !important;
+  }
+
+  #oes-me-legend {
+    position: absolute;
+    left: 0;
+    overflow: hidden;
+    z-index: 20;
+
+    li {
+      cursor: pointer;
+
+      a {
+        color: inherit;
+        transition-property: background-color;
+        transition-duration: .5s;
+        transition-timing-function: ease-in-out;
+      }
+    }
+
+    li.filtered {
+      span {
+        opacity: 0;
+      }
+
+      a {
+        color: #aaa;
+      }
+    }
+
+    li:hover a,
+    li.filtered a {
+      text-decoration: line-through;
+    }
+
+    li.filtered:hover a {
+      text-decoration: none;
+    }
+  }
+
+  header {
+    padding-top: 0 !important;
+  }
+}
+
+
+.oes-me-page {
+
+  header {
+    z-index: 20;
+  }
+}
