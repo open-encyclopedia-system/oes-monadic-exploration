@@ -14,7 +14,7 @@ function enqueue_scripts(): void
     wp_register_style('oes-monadic-exploration', OES_MONADIC_PLUGIN_URL . 'assets/css/me.css');
     wp_enqueue_style('oes-monadic-exploration');
 
-    wp_register_script('oes-monadic-exploration', OES_MONADIC_PLUGIN_URL . 'assets/js/oes-me.js');
+    wp_register_script('oes-monadic-exploration', OES_MONADIC_PLUGIN_URL . 'assets/js/me' . oes_minify() . '.js');
     wp_enqueue_script('oes-monadic-exploration');
 }
 

@@ -51,9 +51,5 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Ge
 
 ## Roadmap
 - In Development: Clicking the “×” in the search input should restore the monads to their original state.
+- center the object
 - Add help tabs and shortcode generator.
-
-# Changelog
-
-## 1.0.0
-- initial release
