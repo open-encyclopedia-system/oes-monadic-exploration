@@ -52,7 +52,7 @@ function html($args): string
 {
     global $oes_me_args;
     $oes_me_args = $args;
-    $class = oes_get_project_class_name('\OES\Monadic\Explorer');
+    $class = oes_get_application_class_name('\OES\Monadic\Explorer');
     $explorer = new $class($args);
     return $explorer->render();
 }
