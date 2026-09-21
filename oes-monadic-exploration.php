@@ -13,7 +13,6 @@
  * Requires at least:  6.5
  * Tested up to:       7.1
  * Requires PHP:       8.1
- * Tags:               oes, visualization, monadic-exploration, data-display, plugin-addon, encyclopedia
  * License:            GPLv2 or later
  * License URI:        https://www.gnu.org/licenses/gpl-2.0.html
  *
