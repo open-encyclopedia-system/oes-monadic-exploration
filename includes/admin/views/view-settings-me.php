@@ -35,7 +35,7 @@
         </p>
         <p><?php
             _e('The shortcode will look something like this (every thing in curved brackets depends on the ' .
-                'projects data model and can be configured):', 'oes');
+                'application data model and can be configured):', 'oes');
             ?>
         </p>
         <code>

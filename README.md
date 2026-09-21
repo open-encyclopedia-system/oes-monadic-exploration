@@ -1,10 +1,13 @@
-# OES Monadic Exploration Module
+# Open Encyclopedia System — Monadic Exploration Module
 
 This repository contains the **OES Monadic Exploration** module for the
 [Open Encyclopedia System (OES)](https://github.com/open-encyclopedia-system/oes-core) framework. It displays a
 collection of objects as a monadic exploration. The design of OES Monadic Exploration is inspired from 
 and using code from
 [Marian Dörk's Monadic Exploration](https://mariandoerk.de/monadicexploration/), published under the MIT License.
+
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/open-encyclopedia-system/oes-monadic-exploration/graphs/commit-activity)
 
 For general information about OES — what it is, its features, citation, contributing, credits, and licensing —
 see the [OES Core README](https://github.com/open-encyclopedia-system/oes-core#readme).
@@ -18,10 +21,10 @@ A typical OES application consists of:
 
 This module depends on:
 
-| Component | Version | Source |
-|---|---|---|
-| OES Core | `2.3.3` | [oes-core](https://github.com/open-encyclopedia-system/oes-core) |
-| Advanced Custom Fields (ACF) | `6.3.4` | [advancedcustomfields.com](https://www.advancedcustomfields.com) |
+| Component                    | Version   | Source                                                           |
+|------------------------------|-----------|------------------------------------------------------------------|
+| OES Core                     | `≥ 2.3.3` | [oes-core](https://github.com/open-encyclopedia-system/oes-core) |
+| Advanced Custom Fields (ACF) | `≥ 6.3.4` | [advancedcustomfields.com](https://www.advancedcustomfields.com) |
 
 ## Documentation
 
@@ -54,4 +57,4 @@ For more detailed credits see [CREDITS.md](./CREDITS.md).
 ## Licensing
 
 This software is licensed under the **GNU General Public License (GPL v2 or later)**. See [LICENSE.txt](./LICENSE.txt)
-for the full license terms, or [https://www.gnu.org/licenses/old-licenses/gpl-2.0.html](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+for the full license terms, or [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html).

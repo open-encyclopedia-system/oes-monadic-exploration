@@ -6,8 +6,6 @@ vocabulary for describing individual contributions to a scholarly or software ou
 **Name:** Maren Welterlich-Strobl, Freie Universität Berlin, FUB-IT, Digitale Forschungsinfrastrukturen
 **Roles (CRediT):** Software, Writing – original draft, Writing – review & editing
 
-This plugin is developed and maintained by Maren Welterlich-Strobl.
-
 ## Inspiration and Third-Party Code
 
 The design of OES Monadic Exploration is inspired by, and uses code from,
